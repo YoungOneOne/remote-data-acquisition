@@ -1,0 +1,19 @@
+# Build output and local state
+**/MDK-ARM/Acquisition/
+**/MDK-ARM/test1/
+**/MDK-ARM/RTE/
+*.uvguix.*
+*.uvoptx
+*.o
+*.obj
+*.axf
+*.hex
+*.map
+*.lst
+*.log
+*.bak*
+__pycache__/
+*.pyc
+.env
+.env.*
+tmp/

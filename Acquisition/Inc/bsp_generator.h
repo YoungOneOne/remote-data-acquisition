@@ -1,0 +1,46 @@
+/**
+  ******************************************************************************
+  * @file    bsp_generator.h
+  * @brief   100Hz - 10kHz 矩形波发生器独立驱动头文件 (无需占空比调节，固定50%占空比)
+  *          输出引脚: PB4 (Arduino D3, 扩展板 LY-AS001 插座【4-2】)
+  *          硬件外设: TIM3_CH1 (PWM 模式 1)
+  ******************************************************************************
+  */
+
+#ifndef __BSP_GENERATOR_H
+#define __BSP_GENERATOR_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "main.h"
+#include "tim.h"
+
+/* 频率有效范围与默认值宏定义 */
+#define GEN_FREQ_MIN       100      /* 最小频率: 100 Hz */
+#define GEN_FREQ_MAX       10000    /* 最大频率: 10 kHz */
+#define GEN_FREQ_DEFAULT   1000     /* 默认上电频率: 1 kHz */
+
+#define GEN_PRESET_COUNT   6        /* 预设档位总数 */
+
+/* 预设常用频率档位表: 100Hz, 500Hz, 1kHz, 2kHz, 5kHz, 10kHz */
+extern const uint32_t c_generator_presets[GEN_PRESET_COUNT];
+
+/* 函数接口声明 */
+void     Generator_Init(void);
+void     Generator_Start(void);
+void     Generator_Stop(void);
+uint8_t  Generator_IsEnabled(void);
+
+uint32_t Generator_SetFrequency(uint32_t freq_hz);
+uint32_t Generator_GetFrequency(void);
+
+uint32_t Generator_NextPreset(void);
+uint32_t Generator_PrevPreset(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __BSP_GENERATOR_H */
