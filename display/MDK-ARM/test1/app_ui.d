@@ -1,0 +1,9 @@
+test1\app_ui.o: ..\App\app_ui.c
+test1\app_ui.o: ..\App\app_ui.h
+test1\app_ui.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdint.h
+test1\app_ui.o: ..\App\app_gfx.h
+test1\app_ui.o: ..\App\app_layout.h
+test1\app_ui.o: ../Core/Inc/scope_protocol.h
+test1\app_ui.o: ..\App\app_screen.h
+test1\app_ui.o: ..\App\ui_kit.h
+test1\app_ui.o: ..\App\app_link.h

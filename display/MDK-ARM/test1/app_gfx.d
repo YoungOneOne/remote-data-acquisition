@@ -1,0 +1,11 @@
+test1\app_gfx.o: ..\App\app_gfx.c
+test1\app_gfx.o: ..\App\app_gfx.h
+test1\app_gfx.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdint.h
+test1\app_gfx.o: ..\App\app_layout.h
+test1\app_gfx.o: ../Core/Inc/scope_protocol.h
+test1\app_gfx.o: ..\App\app_screen.h
+test1\app_gfx.o: ../Drv/drv_lcd.h
+test1\app_gfx.o: ../Drv/drv_font.h
+test1\app_gfx.o: ..\App\gfx_priv.h
+test1\app_gfx.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\string.h
+test1\app_gfx.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdio.h

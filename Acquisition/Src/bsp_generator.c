@@ -1,22 +1,12 @@
-/**
-  ******************************************************************************
-  * @file    bsp_generator.c
-  * @brief   100Hz - 10kHz 矩形波发生器驱动实现 (TIM3_CH1 / PB4 引脚)
-  ******************************************************************************
-  */
+// TIM3_CH1 输出测试方波，输出引脚为 PB4
 
 #include "bsp_generator.h"
 
-// 6 个常用的预设频率档位 (单位: Hz)
-const uint32_t c_generator_presets[GEN_PRESET_COUNT] = {
-    100, 500, 1000, 2000, 5000, 10000
-};
-
 static uint32_t s_current_freq = GEN_FREQ_DEFAULT;
-static uint8_t  s_preset_index = 2; // 默认指向 1000 Hz 档位
 static uint8_t  s_is_running   = 0; // 输出使能状态
+static uint8_t duty_percent = 50; // 占空比，单位%
 
-// 初始化方波发生器 (上电默认输出 1kHz, 50% 占空比方波)
+// 上电输出 1 kHz 方波，默认占空比 50%
 void Generator_Init(void)
 {
     Generator_SetFrequency(GEN_FREQ_DEFAULT);
@@ -37,72 +27,46 @@ void Generator_Stop(void)
     s_is_running = 0;
 }
 
-// 查询当前发生器是否处于开启状态
-uint8_t Generator_IsEnabled(void)
-{
-    return s_is_running;
-}
-
-// TIM3 每微秒计数一次。周期计数 = 1000000 / 频率，高电平占半个周期。
+// TIM3 计数频率为 1 MHz，按频率和占空比设置 ARR、CCR
 uint32_t Generator_SetFrequency(uint32_t freq_hz)
 {
     uint32_t period;
-    // 边界值保护：限制在 100Hz 到 10kHz 之间
-    if (freq_hz < GEN_FREQ_MIN) {
+    // 先限频再做除法，避免频率为 0 或超出定时器的计数范围
+    // 生成的PWM波频率在 100Hz 到 10kHz 之间
+    if (freq_hz < GEN_FREQ_MIN)
+    {
         freq_hz = GEN_FREQ_MIN;
     }
-    if (freq_hz > GEN_FREQ_MAX) {
+    if (freq_hz > GEN_FREQ_MAX)
+    {
         freq_hz = GEN_FREQ_MAX;
     }
 
     s_current_freq = freq_hz;
 
-    period = 1000000UL / freq_hz; // 限频后为 100～10000，能放入 16 位定时器。
+    // 计数时钟为 1 MHz，用 1000000 除以频率得到一个周期的计数次数
+    period = 1000000UL / freq_hz; // 周期计数范围为 100～10000
 
     // 写入定时器寄存器
-    __HAL_TIM_SET_PRESCALER(&htim3, 107);
+    // ARR 从 0 开始计数，所以减 1；CCR 决定高电平持续多少次计数
     __HAL_TIM_SET_AUTORELOAD(&htim3, period - 1);
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, period / 2);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, period * duty_percent/ 100);
+    // 两个寄存器都是整数，实际频率和占空比可能有少量取整误差
 
-    // 产生一次软件更新事件，促使新设置的 ARR 和 CCR 立即加载生效
+    // 产生更新事件，加载新的周期和比较值
     htim3.Instance->EGR = TIM_EGR_UG;
 
-    // 如果当前处于开启状态，确保 PWM 输出持续工作
-    if (s_is_running) {
+    // 原来在输出时继续保持输出
+    if (s_is_running)
+    {
         HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
     }
 
-    // 检查是否恰好命中某个预设档位，同步预设索引
-    for (uint8_t i = 0; i < GEN_PRESET_COUNT; i++) {
-        if (c_generator_presets[i] == freq_hz) {
-            s_preset_index = i;
-            break;
-        }
-    }
-
-    return s_current_freq;
+    return s_current_freq; // 返回限频后的设定值，供命令回复和状态查询使用
 }
 
 // 获取当前发生器频率
 uint32_t Generator_GetFrequency(void)
 {
     return s_current_freq;
-}
-
-// 切换到下一个预设频率档位
-uint32_t Generator_NextPreset(void)
-{
-    s_preset_index = (s_preset_index + 1) % GEN_PRESET_COUNT;
-    return Generator_SetFrequency(c_generator_presets[s_preset_index]);
-}
-
-// 切换到上一个预设频率档位
-uint32_t Generator_PrevPreset(void)
-{
-    if (s_preset_index == 0) {
-        s_preset_index = GEN_PRESET_COUNT - 1;
-    } else {
-        s_preset_index--;
-    }
-    return Generator_SetFrequency(c_generator_presets[s_preset_index]);
 }

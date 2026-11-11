@@ -1,9 +1,6 @@
 /* USER CODE BEGIN Header */
 
-/**
-  * @file  main.c
-  * @brief 远程数据采集系统 - 采集板主程序
-  */
+// 远程数据采集系统 - 采集板主程序
 
 /* USER CODE END Header */
 
@@ -43,8 +40,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-/* 一帧占 1500 字节，放在静态区，避免占满主栈。 */
-static AcqPoint_t frame_points[ACQ_FRAME_POINTS];
+// 波形结果放在静态区，避免占用过多栈空间
+static AcqFrame_t frame;
 
 /* USER CODE END PV */
 
@@ -56,23 +53,30 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// 只在串口空闲时取帧；NORMAL/SINGLE 未触发时不会发送新波形。
+// TIM2 控制采样节拍，ADC DMA 回调更新历史数据，串口中断保存命令字节
+// 主循环负责执行命令、查找触发点和发送波形
+// 串口空闲且有新波形时发送，NORMAL 和 SINGLE 未触发时继续等待
 static void App_SendFrame(void)
 {
+    // 保存上次文本输出的时刻，不能在每次调用时重新清零
     static uint32_t last_text_tick;
-    float ch1_v, ch2_v, ch2_vpp;
-    uint8_t dig_mask;
+    ProtocolMode_t mode = Protocol_GetMode();
 
     if (Protocol_IsBusy() || !Acquisition_IsRunning()) return;
-    // 文本每 100ms 最多发送一次，等待期间直接回主循环处理命令。
-    if (Protocol_GetMode() == PROTOCOL_MODE_TEXT && HAL_GetTick() - last_text_tick < 100) return;
-    if (!Acquisition_IsFrameReady()) return;
-    if (!Acquisition_GetFrame(frame_points, &ch1_v, &ch2_v, &ch2_vpp, &dig_mask)) return;
+    // 文本每 100 ms 最多发送一次，其余时间继续处理命令
+    if (mode == PROTOCOL_MODE_TEXT && HAL_GetTick() - last_text_tick < 100) return;
+    if (!Acquisition_IsFrameReady()) return; // 没有新数据时直接回到主循环
+    if (!Acquisition_GetFrame(&frame)) return; // 数据复制失败或未满足触发条件时不发送
 
-    Protocol_OutputFrame(Acquisition_GetFrameTimebase(), frame_points, ACQ_FRAME_POINTS,
-                         ch1_v, ch2_v, ch2_vpp, dig_mask, Acquisition_GetOvrErrorCount());
+    if (mode == PROTOCOL_MODE_BINARY) {
+        Protocol_SendBinaryFrame(frame.timebase, frame.points);
+    } else {
+        // 文本和二进制使用同一份取帧结果，只是发送格式不同
+        Protocol_PrintDebugText(frame.timebase, frame.ch1_voltage, frame.ch2_voltage,
+                                frame.ch2_vpp, frame.digital, Acquisition_GetOvrErrorCount());
+    }
     last_text_tick = HAL_GetTick();
-    HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_1);
+    HAL_GPIO_TogglePin(GPIOI, GPIO_PIN_1); // 每发出一帧翻转一次，用来观察输出活动
 }
 
 /* USER CODE END 0 */
@@ -106,22 +110,24 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  // DMA 必须先初始化，后面的 ADC 和串口初始化会用到它
+  MX_DMA_Init();
   MX_ADC3_Init();
   MX_USART1_UART_Init();
-  MX_DMA_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  // 1. 初始化通信与采集模块
+  // 开启串口接收和采样
   Protocol_Init();
+  // 先开启串口接收，后面采样启动后就可以响应控制命令
   Acquisition_Init();
 
-  // 2. 初始化方波发生器 (TIM3_CH1, PB4, 默认 1kHz, 50% 占空比)
+  // 启动默认测试方波
   Generator_Init();
 
-  // 3. 打印启动信息
+  // 打印启动信息
   printf("\r\n[Acquisition Board Init OK]\r\n");
   printf("Firmware: WAVE500-TRIGFIX, type=02, points=500, UART=460800\r\n");
   printf("CH1: Pot (PF10), CH2: Mic (PA0)\r\n");
@@ -136,6 +142,7 @@ int main(void)
 
   while (1)
   {
+      // 先处理命令，再决定要不要发送，暂停和等待触发时也能响应操作
       Protocol_ProcessRx();
       App_SendFrame();
     /* USER CODE END WHILE */

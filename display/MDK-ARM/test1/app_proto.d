@@ -1,0 +1,9 @@
+test1\app_proto.o: ..\App\app_proto.c
+test1\app_proto.o: ..\App\app_proto.h
+test1\app_proto.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdint.h
+test1\app_proto.o: ..\App\app_gfx.h
+test1\app_proto.o: ..\App\app_layout.h
+test1\app_proto.o: ../Core/Inc/scope_protocol.h
+test1\app_proto.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\string.h
+test1\app_proto.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdio.h
+test1\app_proto.o: E:\KEIL5\ARM\ARMCC\Bin\..\include\stdlib.h
